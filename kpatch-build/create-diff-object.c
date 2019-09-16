@@ -218,7 +218,9 @@ static void kpatch_add_child_symbol(struct symbol *parent, struct symbol *child)
 
 /*
  * During optimization gcc may move unlikely execution branches into *.cold
- * subfunctions. kpatch_detect_child_functions detects such subfunctions and
+ * subfunctions. Some functions can also be split into multiple *.part
+ * functions.
+ * kpatch_detect_child_functions detects such subfunctions and
  * crossreferences them with their parent functions through parent/child
  * pointers.
  */
@@ -227,25 +229,36 @@ static void kpatch_detect_child_functions(struct kpatch_elf *kelf)
 	struct symbol *sym;
 
 	list_for_each_entry(sym, &kelf->symbols, list) {
-		char *coldstr;
 		struct symbol *parent;
+		char *childstr;
+		char *pname;
 
-		coldstr = strstr(sym->name, ".cold.");
-		if (coldstr != NULL) {
-			char *pname;
+		if (sym->type != STT_FUNC)
+			continue;
 
-			pname = strndup(sym->name, coldstr - sym->name);
-			if (!pname)
-				ERROR("strndup");
-
-			parent = find_symbol_by_name(&kelf->symbols, pname);
-			free(pname);
-
-			if (!parent)
-				ERROR("failed to find parent function for %s", sym->name);
-
-			kpatch_add_child_symbol(parent, sym);
+		childstr = strstr(sym->name, ".cold.");
+		if (!childstr) {
+			childstr = strstr(sym->name, ".part.");
+			if (!childstr)
+				continue;
 		}
+
+		pname = strndup(sym->name, childstr - sym->name);
+		if (!pname)
+			ERROR("strndup");
+
+		parent = find_symbol_by_name(&kelf->symbols, pname);
+		free(pname);
+
+		if (!parent) {
+			/* ".part." symbols don't always have parents */
+			if (sym->has_func_profiling)
+				continue;
+			ERROR("failed to find parent function for %s",
+			      sym->name);
+		}
+
+		kpatch_add_child_symbol(parent, sym);
 	}
 }
 
