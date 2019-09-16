@@ -71,7 +71,8 @@ struct symbol {
 	struct list_head list;
 	struct symbol *twin;
 	struct symbol *parent;
-	struct symbol *child;
+	struct symbol **children;
+	int nb_children;
 	struct section *sec;
 	GElf_Sym sym;
 	char *name;
