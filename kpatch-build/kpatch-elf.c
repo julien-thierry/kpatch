@@ -858,6 +858,8 @@ void kpatch_elf_teardown(struct kpatch_elf *kelf)
 	}
 
 	list_for_each_entry_safe(sym, safesym, &kelf->symbols, list) {
+		if (sym->nb_children > 0)
+			free(sym->children);
 		memset(sym, 0, sizeof(*sym));
 		free(sym);
 	}
