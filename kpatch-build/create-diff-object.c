@@ -1018,15 +1018,23 @@ static struct symbol *kpatch_find_uncorrelated_rela(struct section *rela_sec,
 
 	/* find the patched object's corresponding variable */
 	list_for_each_entry(rela, &rela_sec->relas, list) {
+		struct symbol *patched_sym;
 
 		rela_toc = toc_rela(rela);
 		if (!rela_toc)
 			continue; /* skip toc constants */
 
-		if (rela_toc->sym->twin)
+		patched_sym = rela_toc->sym;
+
+		if (patched_sym->twin)
 			continue;
 
-		if (kpatch_mangled_strcmp(rela_toc->name, sym->name))
+		if (sym->type != patched_sym->type ||
+		    (sym->type == STT_OBJECT &&
+		     sym->sym.st_size != patched_sym->sym.st_size))
+			continue;
+
+		if (kpatch_mangled_strcmp(patched_sym->name, sym->name))
 			continue;
 
 		return rela_toc->sym;
